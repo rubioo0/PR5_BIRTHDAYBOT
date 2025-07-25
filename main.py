@@ -45,6 +45,10 @@ def main():
         print("No valid birthdays found in CSV")
         return
     
+    print(f"Today's date: {today}")
+    print(f"Found {len(birthdays)} birthdays in CSV:")
+    
+    reminders_sent = 0
     for name, bday in birthdays:
         next_bday = bday.replace(year=today.year)
         # If birthday already passed this year, check next year
@@ -52,10 +56,22 @@ def main():
             next_bday = bday.replace(year=today.year + 1)
             
         delta = (next_bday - today).days
+        print(f"  {name}: {bday} -> Next: {next_bday} (in {delta} days)")
+        
         if delta in (7, 1):
             send_message(f"🎂 Reminder: {name}'s birthday is in {delta} day(s) on {next_bday:%Y‑%m‑%d}")
+            print(f"  ✅ Sent reminder for {name}")
+            reminders_sent += 1
         elif delta == 0:
             send_message(f"🎉 Happy Birthday {name}! Today is their special day!")
+            print(f"  🎉 Sent birthday greeting for {name}")
+            reminders_sent += 1
+    
+    if reminders_sent == 0:
+        print("No reminders sent today (no birthdays in 1, 7 days or today)")
+        # Send a test message to verify the bot is working
+        send_message(f"🤖 Birthday Bot Test: System is working! Today is {today}. No birthday reminders for today.")
+        print("✅ Sent test message to confirm bot is working")
 
 if __name__ == "__main__":
     main()
