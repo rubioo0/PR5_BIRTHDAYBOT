@@ -161,9 +161,33 @@ def main():
     
     if reminders_sent == 0:
         print("No reminders sent today (no birthdays in 1, 7 days or today)")
-        # Send a test message to verify the bot is working
-        send_message(f"🤖 Тест бота днів народження: Система працює! Сьогодні {today}. Немає нагадувань про дні народження на сьогодні.")
-        print("✅ Sent test message to confirm bot is working")
+        
+        # Create upcoming birthdays summary (next 30 days)
+        upcoming_birthdays = []
+        for name, bday, row in birthdays:
+            next_bday = bday.replace(year=today.year)
+            if next_bday < today:
+                next_bday = bday.replace(year=today.year + 1)
+            
+            delta = (next_bday - today).days
+            if 0 < delta <= 30:  # Next 30 days (excluding today)
+                upcoming_birthdays.append(f"• {name}: {next_bday:%d.%m} ({delta} днів)")
+        
+        # Send control message with upcoming birthdays info
+        if upcoming_birthdays:
+            upcoming_text = "\n".join(upcoming_birthdays[:5])  # Show max 5 upcoming
+            if len(upcoming_birthdays) > 5:
+                upcoming_text += f"\n... та ще {len(upcoming_birthdays) - 5}"
+            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає нагадувань на сьогодні\n\n🔜 Найближчі дні народження:\n{upcoming_text}"
+        else:
+            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 30 днів"
+        
+        send_message(control_msg)
+        print("✅ Sent control message to confirm bot is working")
+    else:
+        # Send summary control message when reminders were sent
+        send_message(f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n🎂 Відправлено {reminders_sent} нагадувань про дні народження")
+        print(f"✅ Sent control summary: {reminders_sent} reminders sent")
 
 if __name__ == "__main__":
     main()
