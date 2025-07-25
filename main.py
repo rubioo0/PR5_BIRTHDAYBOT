@@ -8,12 +8,21 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID   = os.environ["TELEGRAM_CHAT_ID"]
 
 def fetch_birthdays():
+    print(f"Fetching CSV from: {CSV_URL}")
     r = requests.get(CSV_URL)
     r.raise_for_status()
+    print(f"CSV response status: {r.status_code}")
+    print(f"CSV content length: {len(r.text)} characters")
+    print(f"First 200 characters of CSV: {r.text[:200]}")
+    
     data = csv.DictReader(io.StringIO(r.text))
     
     birthdays = []
+    row_count = 0
     for row in data:
+        row_count += 1
+        print(f"Processing row {row_count}: {row}")
+        
         # Try different possible column names
         name = row.get("Name") or row.get("name") or row.get("NAME") or row.get("Имя")
         birthday = row.get("Birthday") or row.get("birthday") or row.get("BIRTHDAY") or row.get("Дата рождения")
@@ -22,27 +31,54 @@ def fetch_birthdays():
             try:
                 bday_date = datetime.fromisoformat(birthday).date()
                 birthdays.append((name, bday_date))
+                print(f"  ✅ Added: {name} - {bday_date}")
             except ValueError:
                 # Skip rows with invalid date format
-                print(f"Warning: Invalid date format for {name}: {birthday}")
+                print(f"  ❌ Invalid date format for {name}: {birthday}")
                 continue
         else:
-            print(f"Warning: Missing name or birthday in row: {row}")
+            print(f"  ⚠️ Missing name or birthday in row: {row}")
     
+    print(f"Total rows processed: {row_count}")
+    print(f"Valid birthdays found: {len(birthdays)}")
     return birthdays
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text}
-    requests.post(url, json=payload).raise_for_status()
+    print(f"Sending message to chat {CHAT_ID}: {text}")
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        print(f"✅ Message sent successfully! Response: {response.json()}")
+    except Exception as e:
+        print(f"❌ Failed to send message: {e}")
+        if hasattr(e, 'response') and e.response:
+            print(f"Response content: {e.response.text}")
+        raise
 
 def main():
+    print("🤖 Birthday Bot Starting...")
+    print(f"Bot Token: {BOT_TOKEN[:10]}...")
+    print(f"Chat ID: {CHAT_ID}")
+    print(f"CSV URL: {CSV_URL}")
+    
     # Use timezone-aware datetime (UTC+3)
     today = datetime.now(timezone.utc).date() + timedelta(hours=3)
-    birthdays = fetch_birthdays()
+    print(f"Today's date (UTC+3): {today}")
+    
+    try:
+        birthdays = fetch_birthdays()
+    except Exception as e:
+        print(f"❌ Error fetching birthdays: {e}")
+        return
     
     if not birthdays:
-        print("No valid birthdays found in CSV")
+        print("❌ No valid birthdays found in CSV")
+        try:
+            send_message("🤖 Birthday Bot Error: No valid birthdays found in CSV file. Please check your CSV format.")
+        except:
+            print("Failed to send error message")
         return
     
     print(f"Today's date: {today}")
