@@ -13,9 +13,27 @@ def fetch_birthdays():
     r.raise_for_status()
     print(f"CSV response status: {r.status_code}")
     print(f"CSV content length: {len(r.text)} characters")
-    print(f"First 200 characters of CSV: {r.text[:200]}")
     
-    data = csv.DictReader(io.StringIO(r.text))
+    # Try to detect and fix encoding issues
+    text_content = r.text
+    if r.encoding:
+        print(f"Response encoding: {r.encoding}")
+    
+    # Try UTF-8 decoding if there are encoding issues
+    try:
+        if r.content:
+            text_content = r.content.decode('utf-8')
+            print("Successfully decoded as UTF-8")
+    except UnicodeDecodeError:
+        try:
+            text_content = r.content.decode('windows-1251')
+            print("Decoded as Windows-1251")
+        except UnicodeDecodeError:
+            print("Using original text content")
+    
+    print(f"First 200 characters of CSV: {text_content[:200]}")
+    
+    data = csv.DictReader(io.StringIO(text_content))
     
     birthdays = []
     row_count = 0
@@ -34,13 +52,38 @@ def fetch_birthdays():
         
         if name and birthday:
             try:
-                bday_date = datetime.fromisoformat(birthday).date()
-                # Store the full row data along with parsed name and birthday
-                birthdays.append((name, bday_date, row))
-                print(f"  ✅ Added: {name} - {bday_date}")
-            except ValueError:
-                # Skip rows with invalid date format
-                print(f"  ❌ Invalid date format for {name}: {birthday}")
+                # Try multiple date formats
+                bday_date = None
+                birthday = birthday.strip()
+                
+                # Try ISO format first (YYYY-MM-DD)
+                if '-' in birthday and len(birthday) == 10:
+                    bday_date = datetime.fromisoformat(birthday).date()
+                # Try DD.MM.YYYY format
+                elif '.' in birthday:
+                    parts = birthday.split('.')
+                    if len(parts) == 3:
+                        day, month, year = parts
+                        if len(year) == 2:
+                            year = f"19{year}" if int(year) > 50 else f"20{year}"
+                        bday_date = datetime(int(year), int(month), int(day)).date()
+                # Try DD/MM/YYYY format
+                elif '/' in birthday:
+                    parts = birthday.split('/')
+                    if len(parts) == 3:
+                        day, month, year = parts
+                        if len(year) == 2:
+                            year = f"19{year}" if int(year) > 50 else f"20{year}"
+                        bday_date = datetime(int(year), int(month), int(day)).date()
+                
+                if bday_date:
+                    birthdays.append((name, bday_date, row))
+                    print(f"  ✅ Added: {name} - {bday_date}")
+                else:
+                    print(f"  ❌ Could not parse date format: {birthday}")
+                    
+            except (ValueError, IndexError) as e:
+                print(f"  ❌ Invalid date format for {name}: {birthday} - Error: {e}")
                 continue
         else:
             print(f"  ⚠️ Missing required fields in row: {row}")
@@ -170,7 +213,7 @@ def main():
     if reminders_sent == 0:
         print("No reminders sent today (no birthdays in 1, 7 days or today)")
         
-        # Create upcoming birthdays summary (next 30 days)
+        # Create upcoming birthdays summary (next 60 days)
         upcoming_birthdays = []
         print(f"DEBUG: Checking upcoming birthdays from {len(birthdays)} total birthdays...")
         for name, bday, row in birthdays:
@@ -180,11 +223,11 @@ def main():
             
             delta = (next_bday - today).days
             print(f"  DEBUG: {name}: next birthday {next_bday}, delta = {delta} days")
-            if 0 < delta <= 30:  # Next 30 days (excluding today)
+            if 1 <= delta <= 60:  # Next 60 days (excluding today, including tomorrow)
                 upcoming_birthdays.append(f"• {name}: {next_bday:%d.%m} ({delta} днів)")
                 print(f"    -> Added to upcoming list")
         
-        print(f"DEBUG: Found {len(upcoming_birthdays)} upcoming birthdays in next 30 days")
+        print(f"DEBUG: Found {len(upcoming_birthdays)} upcoming birthdays in next 60 days")
         
         # Send control message with upcoming birthdays info
         if upcoming_birthdays:
@@ -203,7 +246,7 @@ def main():
                         next_bday = bday.replace(year=today.year + 1)
                     delta = (next_bday - today).days
                     debug_info += f"\n• {name}: {next_bday:%d.%m} ({delta} днів)"
-            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 30 днів\n\n{debug_info}"
+            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 60 днів\n\n{debug_info}"
         
         send_message(control_msg)
         print("✅ Sent control message to confirm bot is working")
