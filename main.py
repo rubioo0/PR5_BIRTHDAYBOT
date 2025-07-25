@@ -94,6 +94,15 @@ def fetch_birthdays():
     print(f"Valid birthdays found: {len(birthdays)}")
     return birthdays
 
+def calculate_age(birthdate, target_date):
+    """Calculate age on a specific date"""
+    return target_date.year - birthdate.year - ((target_date.month, target_date.day) < (birthdate.month, birthdate.day))
+
+def is_milestone_age(age):
+    """Check if an age is a milestone/round birthday"""
+    milestone_ages = [18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+    return age in milestone_ages
+
 def format_person_info(name, row):
     """Format Ukrainian person information from CSV row"""
     info_lines = [f"👤 {name}"]
@@ -151,6 +160,88 @@ def send_message(text):
             print(f"Response content: {e.response.text}")
         raise
 
+def check_for_commands():
+    """Check for new Telegram messages and handle commands"""
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+        response = requests.get(url)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data.get('ok') and data.get('result'):
+            # Get the latest message
+            messages = data['result']
+            if messages:
+                latest_message = messages[-1]
+                message_text = latest_message.get('message', {}).get('text', '')
+                chat_id = latest_message.get('message', {}).get('chat', {}).get('id')
+                
+                # Only respond to messages from our configured chat
+                if str(chat_id) == str(CHAT_ID) and message_text.strip() == '/birthdays':
+                    print(f"Received /birthdays command from chat {chat_id}")
+                    return True
+        
+        return False
+    except Exception as e:
+        print(f"Error checking for commands: {e}")
+        return False
+
+def send_all_birthdays_list(birthdays, today):
+    """Send a formatted list of all birthdays with days remaining"""
+    if not birthdays:
+        send_message("📋 Birthday List\n\nNo birthdays found in database.")
+        return
+    
+    # Calculate days for all birthdays and sort by next occurrence
+    birthday_info = []
+    for name, bday, row in birthdays:
+        next_bday = bday.replace(year=today.year)
+        if next_bday < today:
+            next_bday = bday.replace(year=today.year + 1)
+        
+        delta = (next_bday - today).days
+        age = calculate_age(bday, next_bday)
+        
+        # Format each birthday entry
+        milestone_indicator = " 🎊" if is_milestone_age(age) else ""
+        birthday_info.append((delta, f"• {name}: {next_bday:%d.%m} ({delta} days){milestone_indicator}"))
+    
+    # Sort by days remaining (closest first)
+    birthday_info.sort(key=lambda x: x[0])
+    
+    # Create the message
+    message_lines = ["📋 All Birthdays List\n"]
+    
+    for _, birthday_line in birthday_info:
+        message_lines.append(birthday_line)
+    
+    message = "\n".join(message_lines)
+    
+    # Split message if too long (Telegram limit is ~4000 characters)
+    if len(message) > 3500:
+        # Send in chunks
+        chunk_lines = ["📋 All Birthdays List (Part 1)\n"]
+        current_length = len(chunk_lines[0])
+        part_num = 1
+        
+        for _, birthday_line in birthday_info:
+            if current_length + len(birthday_line) + 1 > 3500:
+                # Send current chunk
+                send_message("\n".join(chunk_lines))
+                # Start new chunk
+                part_num += 1
+                chunk_lines = [f"📋 All Birthdays List (Part {part_num})\n"]
+                current_length = len(chunk_lines[0])
+            
+            chunk_lines.append(birthday_line)
+            current_length += len(birthday_line) + 1
+        
+        # Send final chunk
+        if len(chunk_lines) > 1:
+            send_message("\n".join(chunk_lines))
+    else:
+        send_message(message)
+
 def main():
     print("🤖 Birthday Bot Starting...")
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
@@ -174,6 +265,12 @@ def main():
         except:
             print("Failed to send error message")
         return
+    
+    # Check for /birthdays command first
+    if check_for_commands():
+        print("Processing /birthdays command...")
+        send_all_birthdays_list(birthdays, today)
+        return  # Exit after handling command
     
     print(f"Today's date: {today}")
     print(f"Found {len(birthdays)} birthdays in CSV:")
@@ -199,13 +296,27 @@ def main():
         if delta in (7, 1):
             person_info = format_person_info(name, row)
             days_text = "days" if delta == 7 else "day"
-            message = f"❗ Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}"
+            
+            # Calculate age and check if it's a milestone
+            age = calculate_age(bday, next_bday)
+            milestone_text = ""
+            if is_milestone_age(age):
+                milestone_text = f"\n🎊 MILESTONE BIRTHDAY! Turning {age}! 🎊"
+            
+            message = f"❗ Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}{milestone_text}"
             send_message(message)
             print(f"  ✅ Sent reminder for {name}")
             reminders_sent += 1
         elif delta == 0:
             person_info = format_person_info(name, row)
-            message = f"🟢 Happy Birthday! 🟢\n\n{person_info}\n\n🛑 Don`t forget to greet!"
+            
+            # Calculate age and check if it's a milestone
+            age = calculate_age(bday, next_bday)
+            milestone_text = ""
+            if is_milestone_age(age):
+                milestone_text = f"\n🎊 MILESTONE BIRTHDAY! They're turning {age} today! 🎊"
+            
+            message = f"🟢 Happy Birthday! 🟢\n\n{person_info}\n\n🛑 Don`t forget to greet!{milestone_text}"
             send_message(message)
             print(f"  🎉 Sent birthday greeting for {name}")
             reminders_sent += 1
