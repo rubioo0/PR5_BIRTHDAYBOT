@@ -23,25 +23,76 @@ def fetch_birthdays():
         row_count += 1
         print(f"Processing row {row_count}: {row}")
         
-        # Try different possible column names
-        name = row.get("Name") or row.get("name") or row.get("NAME") or row.get("Имя")
-        birthday = row.get("Birthday") or row.get("birthday") or row.get("BIRTHDAY") or row.get("Дата рождения")
+        # Try different possible column names for name (Ukrainian)
+        name = (row.get("Ім'я") or row.get("name") or row.get("Name") or 
+                row.get("ім'я") or row.get("NAME") or row.get("Імя"))
+        
+        # Try different possible column names for birthday
+        birthday = (row.get("Дата народження") or row.get("Birthday") or 
+                   row.get("birthday") or row.get("дата народження") or 
+                   row.get("BIRTHDAY") or row.get("Дата"))
         
         if name and birthday:
             try:
                 bday_date = datetime.fromisoformat(birthday).date()
-                birthdays.append((name, bday_date))
+                # Store the full row data along with parsed name and birthday
+                birthdays.append((name, bday_date, row))
                 print(f"  ✅ Added: {name} - {bday_date}")
             except ValueError:
                 # Skip rows with invalid date format
                 print(f"  ❌ Invalid date format for {name}: {birthday}")
                 continue
         else:
-            print(f"  ⚠️ Missing name or birthday in row: {row}")
+            print(f"  ⚠️ Missing required fields in row: {row}")
+            print(f"    Name found: {name}")
+            print(f"    Birthday found: {birthday}")
     
     print(f"Total rows processed: {row_count}")
     print(f"Valid birthdays found: {len(birthdays)}")
     return birthdays
+
+def format_person_info(name, row):
+    """Format Ukrainian person information from CSV row"""
+    info_lines = [f"👤 {name}"]
+    
+    # Get phone number (+380 format)
+    phone_fields = ["Телефон", "телефон", "Phone", "phone", "Номер телефону", "номер телефону"]
+    phone = None
+    for field in phone_fields:
+        if row.get(field) and row.get(field).strip():
+            phone = row.get(field).strip()
+            break
+    
+    # Get telegram ID (@nickname format)  
+    telegram_fields = ["Telegram", "telegram", "TG", "tg", "Телеграм", "телеграм", "Telegram ID", "telegram id"]
+    telegram = None
+    for field in telegram_fields:
+        if row.get(field) and row.get(field).strip():
+            telegram = row.get(field).strip()
+            break
+    
+    # Add phone if available (handle missing + symbol for Ukrainian numbers)
+    if phone:
+        # Remove any spaces, dashes, or parentheses
+        clean_phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        
+        # If it's a Ukrainian number without +, add it
+        if clean_phone.startswith("380") and not clean_phone.startswith("+"):
+            clean_phone = f"+{clean_phone}"
+        elif not clean_phone.startswith("+") and len(clean_phone) == 9:
+            # If it's 9 digits (without country code), add +380
+            clean_phone = f"+380{clean_phone}"
+        
+        info_lines.append(f"📞 Телефон: {clean_phone}")
+    
+    # Add telegram if available
+    if telegram:
+        # Ensure @ symbol is present
+        if not telegram.startswith('@'):
+            telegram = f"@{telegram}"
+        info_lines.append(f"💬 Telegram: {telegram}")
+    
+    return "\n".join(info_lines)
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -85,7 +136,7 @@ def main():
     print(f"Found {len(birthdays)} birthdays in CSV:")
     
     reminders_sent = 0
-    for name, bday in birthdays:
+    for name, bday, row in birthdays:
         next_bday = bday.replace(year=today.year)
         # If birthday already passed this year, check next year
         if next_bday < today:
@@ -95,18 +146,23 @@ def main():
         print(f"  {name}: {bday} -> Next: {next_bday} (in {delta} days)")
         
         if delta in (7, 1):
-            send_message(f"🎂 Reminder: {name}'s birthday is in {delta} day(s) on {next_bday:%Y‑%m‑%d}")
+            person_info = format_person_info(name, row)
+            days_text = "днів" if delta == 7 else "день"
+            message = f"🎂 Нагадування про день народження ({delta} {days_text} залишилось)\n\n{person_info}\n\n📅 День народження: {next_bday:%Y-%m-%d}"
+            send_message(message)
             print(f"  ✅ Sent reminder for {name}")
             reminders_sent += 1
         elif delta == 0:
-            send_message(f"🎉 Happy Birthday {name}! Today is their special day!")
+            person_info = format_person_info(name, row)
+            message = f"🎉 З Днем народження! 🎉\n\n{person_info}\n\n🎂 Сьогодні особливий день!"
+            send_message(message)
             print(f"  🎉 Sent birthday greeting for {name}")
             reminders_sent += 1
     
     if reminders_sent == 0:
         print("No reminders sent today (no birthdays in 1, 7 days or today)")
         # Send a test message to verify the bot is working
-        send_message(f"🤖 Birthday Bot Test: System is working! Today is {today}. No birthday reminders for today.")
+        send_message(f"🤖 Тест бота днів народження: Система працює! Сьогодні {today}. Немає нагадувань про дні народження на сьогодні.")
         print("✅ Sent test message to confirm bot is working")
 
 if __name__ == "__main__":
