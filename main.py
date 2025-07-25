@@ -126,7 +126,7 @@ def format_person_info(name, row):
             # If it's 9 digits (without country code), add +380
             clean_phone = f"+380{clean_phone}"
         
-        info_lines.append(f"📞 Телефон: {clean_phone}")
+        info_lines.append(f"📞 Phone: {clean_phone}")
     
     # Add telegram if available
     if telegram:
@@ -198,24 +198,24 @@ def main():
         
         if delta in (7, 1):
             person_info = format_person_info(name, row)
-            days_text = "днів" if delta == 7 else "день"
-            message = f"🎂 Нагадування про день народження ({delta} {days_text} залишилось)\n\n{person_info}\n\n📅 День народження: {next_bday:%Y-%m-%d}"
+            days_text = "days" if delta == 7 else "day"
+            message = f"🎂 Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n📅 Birthday: {next_bday:%Y-%m-%d}"
             send_message(message)
             print(f"  ✅ Sent reminder for {name}")
             reminders_sent += 1
         elif delta == 0:
             person_info = format_person_info(name, row)
-            message = f"🎉 З Днем народження! 🎉\n\n{person_info}\n\n🎂 Сьогодні особливий день!"
+            message = f"🎉 Happy Birthday! 🎉\n\n{person_info}\n\n🎂 Today is their special day!"
             send_message(message)
             print(f"  🎉 Sent birthday greeting for {name}")
             reminders_sent += 1
     
     # Always send a simple control message
     if reminders_sent == 0:
-        control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}"
+        control_msg = f"✅ Control Message\n🤖 Bot is working! Today is {today}"
         print("No reminders sent today")
     else:
-        control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}"
+        control_msg = f"✅ Control Message\n🤖 Bot is working! Today is {today}"
         print(f"✅ Sent {reminders_sent} birthday reminders")
     
     send_message(control_msg)
