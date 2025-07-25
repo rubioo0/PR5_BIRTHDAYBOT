@@ -4,8 +4,8 @@ import requests
 
 # Config from environment
 CSV_URL = os.environ["SHEET_CSV_URL"]
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-CHAT_ID   = os.environ["CHAT_ID"]
+BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+CHAT_ID   = os.environ["TELEGRAM_CHAT_ID"]
 
 def fetch_birthdays():
     r = requests.get(CSV_URL)
