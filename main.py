@@ -146,37 +146,6 @@ def format_person_info(name, row):
     
     return "\n".join(info_lines)
 
-def setup_bot_commands():
-    """Set up bot commands menu (call this once to register commands)"""
-    try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
-        commands = [
-            {
-                "command": "birthdays",
-                "description": "Show all upcoming birthdays"
-            },
-            {
-                "command": "start",
-                "description": "Start the bot"
-            }
-        ]
-        
-        payload = {"commands": commands}
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        
-        result = response.json()
-        if result.get('ok'):
-            print("✅ Bot commands set up successfully!")
-            return True
-        else:
-            print(f"❌ Failed to set up commands: {result}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error setting up bot commands: {e}")
-        return False
-
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text}
@@ -190,51 +159,6 @@ def send_message(text):
         if hasattr(e, 'response') and e.response:
             print(f"Response content: {e.response.text}")
         raise
-
-def check_for_commands():
-    """Check for new Telegram messages and handle commands"""
-    try:
-        # Get updates with offset to only get new messages
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-        params = {"timeout": 10, "limit": 10}
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        data = response.json()
-        print(f"Telegram API response: {data}")
-        
-        if data.get('ok') and data.get('result'):
-            messages = data['result']
-            print(f"Found {len(messages)} messages")
-            
-            for message_data in messages:
-                if 'message' in message_data:
-                    message = message_data['message']
-                    message_text = message.get('text', '').strip()
-                    chat_id = message.get('chat', {}).get('id')
-                    
-                    print(f"Message: '{message_text}' from chat: {chat_id}")
-                    
-                    # Check if it's from our chat
-                    if str(chat_id) == str(CHAT_ID):
-                        # Mark this update as processed
-                        update_id = message_data['update_id']
-                        offset_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-                        offset_params = {"offset": update_id + 1}
-                        requests.get(offset_url, params=offset_params)
-                        
-                        # Handle different commands
-                        if message_text == '/birthdays':
-                            print(f"✅ Found /birthdays command!")
-                            return 'birthdays'
-                        elif message_text == '/start':
-                            print(f"✅ Found /start command!")
-                            return 'start'
-        
-        return None
-    except Exception as e:
-        print(f"Error checking for commands: {e}")
-        return None
 
 def send_all_birthdays_list(birthdays, today):
     """Send a formatted list of all birthdays with days remaining"""
@@ -301,42 +225,9 @@ def main():
     # Use timezone-aware datetime (UTC+3)
     today = datetime.now(timezone.utc).date() + timedelta(hours=3)
     print(f"Today's date (UTC+3): {today}")
+    print(f"Day of week: {today.strftime('%A')} (0=Monday, 6=Sunday: {today.weekday()})")
     
-    # Check for commands first
-    command = check_for_commands()
-    if command:
-        print(f"Processing command: {command}")
-        
-        try:
-            birthdays = fetch_birthdays()
-        except Exception as e:
-            print(f"❌ Error fetching birthdays: {e}")
-            send_message("❌ Error fetching birthday data. Please try again later.")
-            return
-        
-        if command == 'start':
-            start_message = """🤖 Birthday Bot
-
-Welcome! I help track birthdays and send reminders.
-
-Available commands:
-/birthdays - Show all upcoming birthdays
-/start - Show this welcome message
-
-I automatically send reminders:
-• 7 days before birthdays
-• 1 day before birthdays  
-• On the birthday itself
-
-The bot runs daily at midnight (UTC+3)."""
-            send_message(start_message)
-            
-        elif command == 'birthdays':
-            send_all_birthdays_list(birthdays, today)
-            
-        return  # Exit after handling command
-    
-    # Continue with regular daily birthday checking
+    # Fetch birthdays
     try:
         birthdays = fetch_birthdays()
     except Exception as e:
@@ -350,6 +241,16 @@ The bot runs daily at midnight (UTC+3)."""
         except:
             print("Failed to send error message")
         return
+    
+    # Check if it's Sunday (6) and send weekly birthday list
+    if today.weekday() == 6:  # Sunday = 6 (Monday=0, Tuesday=1, ..., Sunday=6)
+        print("📅 It's Sunday! Sending weekly birthday list...")
+        weekly_header = f"📅 Weekly Birthday Overview - {today.strftime('%B %d, %Y')}\n\nHere's your complete birthday list with days remaining:"
+        send_message(weekly_header)
+        send_all_birthdays_list(birthdays, today)
+        print("✅ Sent weekly birthday list")
+    
+    # Continue with regular daily birthday checking
     
     print(f"Today's date: {today}")
     print(f"Found {len(birthdays)} birthdays in CSV:")
