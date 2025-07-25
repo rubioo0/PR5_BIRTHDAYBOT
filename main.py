@@ -199,13 +199,13 @@ def main():
         if delta in (7, 1):
             person_info = format_person_info(name, row)
             days_text = "days" if delta == 7 else "day"
-            message = f"🎂 Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n📅 Birthday: {next_bday:%Y-%m-%d}"
+            message = f"❗ Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}"
             send_message(message)
             print(f"  ✅ Sent reminder for {name}")
             reminders_sent += 1
         elif delta == 0:
             person_info = format_person_info(name, row)
-            message = f"🎉 Happy Birthday! 🎉\n\n{person_info}\n\n🎂 Today is their special day!"
+            message = f"🟢 Happy Birthday! 🟢\n\n{person_info}\n\n🛑 Don`t forget to greet!"
             send_message(message)
             print(f"  🎉 Sent birthday greeting for {name}")
             reminders_sent += 1
