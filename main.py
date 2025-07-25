@@ -135,6 +135,14 @@ def main():
     print(f"Today's date: {today}")
     print(f"Found {len(birthdays)} birthdays in CSV:")
     
+    # Debug: Show all found birthdays with calculations
+    for name, bday, row in birthdays:
+        next_bday = bday.replace(year=today.year)
+        if next_bday < today:
+            next_bday = bday.replace(year=today.year + 1)
+        delta = (next_bday - today).days
+        print(f"  DEBUG: {name}: {bday} -> Next: {next_bday} (in {delta} days)")
+    
     reminders_sent = 0
     for name, bday, row in birthdays:
         next_bday = bday.replace(year=today.year)
@@ -164,14 +172,19 @@ def main():
         
         # Create upcoming birthdays summary (next 30 days)
         upcoming_birthdays = []
+        print(f"DEBUG: Checking upcoming birthdays from {len(birthdays)} total birthdays...")
         for name, bday, row in birthdays:
             next_bday = bday.replace(year=today.year)
             if next_bday < today:
                 next_bday = bday.replace(year=today.year + 1)
             
             delta = (next_bday - today).days
+            print(f"  DEBUG: {name}: next birthday {next_bday}, delta = {delta} days")
             if 0 < delta <= 30:  # Next 30 days (excluding today)
                 upcoming_birthdays.append(f"• {name}: {next_bday:%d.%m} ({delta} днів)")
+                print(f"    -> Added to upcoming list")
+        
+        print(f"DEBUG: Found {len(upcoming_birthdays)} upcoming birthdays in next 30 days")
         
         # Send control message with upcoming birthdays info
         if upcoming_birthdays:
@@ -180,7 +193,17 @@ def main():
                 upcoming_text += f"\n... та ще {len(upcoming_birthdays) - 5}"
             control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає нагадувань на сьогодні\n\n🔜 Найближчі дні народження:\n{upcoming_text}"
         else:
-            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 30 днів"
+            # Debug message showing what data was found
+            debug_info = f"📊 Знайдено {len(birthdays)} записів у CSV"
+            if len(birthdays) > 0:
+                debug_info += f"\nПерші записи:"
+                for i, (name, bday, row) in enumerate(birthdays[:3]):
+                    next_bday = bday.replace(year=today.year)
+                    if next_bday < today:
+                        next_bday = bday.replace(year=today.year + 1)
+                    delta = (next_bday - today).days
+                    debug_info += f"\n• {name}: {next_bday:%d.%m} ({delta} днів)"
+            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 30 днів\n\n{debug_info}"
         
         send_message(control_msg)
         print("✅ Sent control message to confirm bot is working")
