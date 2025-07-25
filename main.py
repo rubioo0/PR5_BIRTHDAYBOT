@@ -210,50 +210,16 @@ def main():
             print(f"  🎉 Sent birthday greeting for {name}")
             reminders_sent += 1
     
+    # Always send a simple control message
     if reminders_sent == 0:
-        print("No reminders sent today (no birthdays in 1, 7 days or today)")
-        
-        # Create upcoming birthdays summary (next 60 days)
-        upcoming_birthdays = []
-        print(f"DEBUG: Checking upcoming birthdays from {len(birthdays)} total birthdays...")
-        for name, bday, row in birthdays:
-            next_bday = bday.replace(year=today.year)
-            if next_bday < today:
-                next_bday = bday.replace(year=today.year + 1)
-            
-            delta = (next_bday - today).days
-            print(f"  DEBUG: {name}: next birthday {next_bday}, delta = {delta} days")
-            if 1 <= delta <= 60:  # Next 60 days (excluding today, including tomorrow)
-                upcoming_birthdays.append(f"• {name}: {next_bday:%d.%m} ({delta} днів)")
-                print(f"    -> Added to upcoming list")
-        
-        print(f"DEBUG: Found {len(upcoming_birthdays)} upcoming birthdays in next 60 days")
-        
-        # Send control message with upcoming birthdays info
-        if upcoming_birthdays:
-            upcoming_text = "\n".join(upcoming_birthdays[:5])  # Show max 5 upcoming
-            if len(upcoming_birthdays) > 5:
-                upcoming_text += f"\n... та ще {len(upcoming_birthdays) - 5}"
-            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає нагадувань на сьогодні\n\n🔜 Найближчі дні народження:\n{upcoming_text}"
-        else:
-            # Debug message showing what data was found
-            debug_info = f"📊 Знайдено {len(birthdays)} записів у CSV"
-            if len(birthdays) > 0:
-                debug_info += f"\nПерші записи:"
-                for i, (name, bday, row) in enumerate(birthdays[:3]):
-                    next_bday = bday.replace(year=today.year)
-                    if next_bday < today:
-                        next_bday = bday.replace(year=today.year + 1)
-                    delta = (next_bday - today).days
-                    debug_info += f"\n• {name}: {next_bday:%d.%m} ({delta} днів)"
-            control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n📅 Немає днів народження в найближчі 60 днів\n\n{debug_info}"
-        
-        send_message(control_msg)
-        print("✅ Sent control message to confirm bot is working")
+        control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}"
+        print("No reminders sent today")
     else:
-        # Send summary control message when reminders were sent
-        send_message(f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}\n🎂 Відправлено {reminders_sent} нагадувань про дні народження")
-        print(f"✅ Sent control summary: {reminders_sent} reminders sent")
+        control_msg = f"✅ Контрольне повідомлення\n🤖 Бот працює! Сьогодні {today}"
+        print(f"✅ Sent {reminders_sent} birthday reminders")
+    
+    send_message(control_msg)
+    print("✅ Sent control message")
 
 if __name__ == "__main__":
     main()
