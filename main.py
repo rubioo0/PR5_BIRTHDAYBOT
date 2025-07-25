@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import requests
 
 # Config from environment
-CSV_URL   = os.environ["https://docs.google.com/spreadsheets/d/e/2PACX-1vTMhZ0NIeVO7XUe9pF4nf3cdbYt9WgEFCfreEBP2nQIhYOTBjFK3PwRqLLfNhJBt9YhPvbjKVVZl1M8/pubhtml"]
+CSV_URL = os.environ["SHEET_CSV_URL"]
 BOT_TOKEN = os.environ["8460155189:AAExnU8vhSAYiLZdBEG08sQFeAJAu1iNBX0"]
 CHAT_ID   = os.environ["1029934657"]
 
