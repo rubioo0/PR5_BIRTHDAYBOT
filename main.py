@@ -230,7 +230,7 @@ def main():
         kyiv_tz = ZoneInfo("Europe/Kyiv")
         today = datetime.now(kyiv_tz).date()
         print(f"Today's date (Kyiv timezone): {today}")
-    except:
+    except (NameError, AttributeError):
         # Fallback to UTC+3 (Kyiv is typically UTC+2 or UTC+3 depending on DST)
         today = (datetime.now(timezone.utc) + timedelta(hours=3)).date()
         print(f"Today's date (UTC+3 fallback): {today}")
