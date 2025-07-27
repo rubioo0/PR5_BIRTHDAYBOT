@@ -333,18 +333,37 @@ def main():
         messages_sent.append("Weekly birthday list")
         print("✅ Sent weekly birthday list")
     
+    # Calculate next scheduled run time (daily at 06:00 UTC = 09:00 Kyiv)
+    try:
+        if ZoneInfo:
+            kyiv_tz = ZoneInfo("Europe/Kyiv")
+            now_kyiv = datetime.now(kyiv_tz)
+            current_time_str = now_kyiv.strftime('%Y-%m-%d %H:%M:%S Kyiv')
+            next_run_kyiv = now_kyiv.replace(hour=9, minute=0, second=0, microsecond=0)
+            # If it's already past 09:00 Kyiv today, schedule for tomorrow
+            if now_kyiv.time() >= next_run_kyiv.time():
+                next_run_kyiv += timedelta(days=1)
+            next_run_utc = next_run_kyiv.astimezone(timezone.utc)
+        else:
+            raise ImportError  # Force fallback
+    except:
+        # Fallback calculation - show Kyiv time equivalent
+        now_utc = datetime.now(timezone.utc)
+        now_kyiv_fallback = now_utc + timedelta(hours=3)
+        current_time_str = now_kyiv_fallback.strftime('%Y-%m-%d %H:%M:%S Kyiv')
+        next_run_utc = now_utc.replace(hour=6, minute=0, second=0, microsecond=0)
+        # If it's already past 06:00 UTC today, schedule for tomorrow
+        if now_utc.time() >= next_run_utc.time():
+            next_run_utc += timedelta(days=1)
+    
     # Always send ONE control message with verification
     control_parts = [f"✅ Control Message"]
     control_parts.append(f"🤖 Bot is working! Today is {today}")
+    control_parts.append(f"🕐 Current time: {current_time_str}")
     control_parts.append(f"📊 Tracking {len(birthdays)} birthdays")
+    control_parts.append(f"⏰ Next scheduled run: {next_run_utc.strftime('%Y-%m-%d %H:%M UTC')} (09:00 Kyiv)")
     
     # Add verification based on what happened
-    if birthday_greetings_sent > 0:
-        control_parts.append(f"🎉 Sent {birthday_greetings_sent} birthday greeting(s)")
-    
-    if reminders_sent > 0:
-        control_parts.append(f"⏰ Sent {reminders_sent} birthday reminder(s)")
-    
     if is_sunday:
         control_parts.append("📅 Sent weekly birthday overview")
     
