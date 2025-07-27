@@ -1,5 +1,10 @@
 import csv, io, os
 from datetime import datetime, timedelta, timezone
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fallback for Python < 3.9
+    ZoneInfo = None
 import requests
 
 # Config from environment
@@ -219,9 +224,17 @@ def main():
     print(f"Chat ID: {CHAT_ID}")
     print(f"CSV URL: {CSV_URL}")
     
-    # Use timezone-aware datetime (UTC+3 for Kyiv time)
-    today = datetime.now(ZoneInfo("Europe/Kyiv")).date()
-    print(f"Today's date (UTC+3): {today}")
+    # Use timezone-aware datetime (Kyiv time)
+    try:
+        # Try using ZoneInfo first (Python 3.9+)
+        kyiv_tz = ZoneInfo("Europe/Kyiv")
+        today = datetime.now(kyiv_tz).date()
+        print(f"Today's date (Kyiv timezone): {today}")
+    except (NameError, AttributeError):
+        # Fallback to UTC+3 (Kyiv is typically UTC+2 or UTC+3 depending on DST)
+        today = (datetime.now(timezone.utc) + timedelta(hours=3)).date()
+        print(f"Today's date (UTC+3 fallback): {today}")
+    
     print(f"Day of week: {today.strftime('%A')} (0=Monday, 6=Sunday: {today.weekday()})")
     
     # Fetch birthdays
@@ -321,8 +334,9 @@ def main():
         print("✅ Sent weekly birthday list")
     
     # Always send ONE control message with verification
-    control_parts = [f"✅ Control Message - {today}"]
-    control_parts.append(f"🤖 Bot is working! ({len(birthdays)} birthdays tracked)")
+    control_parts = [f"✅ Control Message"]
+    control_parts.append(f"🤖 Bot is working! Today is {today}")
+    control_parts.append(f"📊 Tracking {len(birthdays)} birthdays")
     
     # Add verification based on what happened
     if birthday_greetings_sent > 0:
