@@ -219,8 +219,8 @@ def main():
     print(f"Chat ID: {CHAT_ID}")
     print(f"CSV URL: {CSV_URL}")
     
-    # Use timezone-aware datetime (UTC+3)
-    today = datetime.now(timezone.utc).date() + timedelta(hours=3)
+    # Use timezone-aware datetime (UTC+3 for Kyiv time)
+    today = (datetime.now(timezone.utc) + timedelta(hours=3)).date()
     print(f"Today's date (UTC+3): {today}")
     print(f"Day of week: {today.strftime('%A')} (0=Monday, 6=Sunday: {today.weekday()})")
     
@@ -229,25 +229,15 @@ def main():
         birthdays = fetch_birthdays()
     except Exception as e:
         print(f"❌ Error fetching birthdays: {e}")
+        error_msg = f"🤖 Birthday Bot Error: Failed to fetch birthdays.\n\n📅 Today: {today}\n❌ Error: {str(e)}"
+        send_message(error_msg)
         return
     
     if not birthdays:
         print("❌ No valid birthdays found in CSV")
-        try:
-            send_message("🤖 Birthday Bot Error: No valid birthdays found in CSV file. Please check your CSV format.")
-        except:
-            print("Failed to send error message")
+        error_msg = f"🤖 Birthday Bot Error: No valid birthdays found in CSV file.\n\n📅 Today: {today}\n⚠️ Please check your CSV format."
+        send_message(error_msg)
         return
-    
-    # Check if it's Sunday (6) and send weekly birthday list
-    if today.weekday() == 6:  # Sunday = 6 (Monday=0, Tuesday=1, ..., Sunday=6)
-        print("📅 It's Sunday! Sending weekly birthday list...")
-        weekly_header = f"📅 Weekly Birthday Overview - {today.strftime('%B %d, %Y')}\n\nHere's your complete birthday list with days remaining:"
-        send_message(weekly_header)
-        send_all_birthdays_list(birthdays, today)
-        print("✅ Sent weekly birthday list")
-    
-    # Continue with regular daily birthday checking
     
     print(f"Today's date: {today}")
     print(f"Found {len(birthdays)} birthdays in CSV:")
@@ -260,7 +250,12 @@ def main():
         delta = (next_bday - today).days
         print(f"  DEBUG: {name}: {bday} -> Next: {next_bday} (in {delta} days)")
     
+    # Track what messages we need to send
+    messages_sent = []
     reminders_sent = 0
+    birthday_greetings_sent = 0
+    
+    # Check for birthday reminders and greetings
     for name, bday, row in birthdays:
         next_bday = bday.replace(year=today.year)
         # If birthday already passed this year, check next year
@@ -270,20 +265,36 @@ def main():
         delta = (next_bday - today).days
         print(f"  {name}: {bday} -> Next: {next_bday} (in {delta} days)")
         
-        if delta in (7, 1):
+        if delta == 7:
             person_info = format_person_info(name, row)
-            days_text = "days" if delta == 7 else "day"
             
             # Calculate age and check if it's a milestone
             age = calculate_age(bday, next_bday)
             milestone_text = ""
             if is_milestone_age(age):
-                milestone_text = f"\n� MILESTONE BIRTHDAY! Turning {age}! 🎊"
+                milestone_text = f"\n🎊 MILESTONE BIRTHDAY! Turning {age}! 🎊"
             
-            message = f"❗ Birthday Reminder ({delta} {days_text} left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}{milestone_text}"
+            message = f"❗ Birthday Reminder (7 days left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}{milestone_text}"
             send_message(message)
-            print(f"  ✅ Sent reminder for {name}")
+            messages_sent.append(f"7-day reminder for {name}")
+            print(f"  ✅ Sent 7-day reminder for {name}")
             reminders_sent += 1
+            
+        elif delta == 1:
+            person_info = format_person_info(name, row)
+            
+            # Calculate age and check if it's a milestone
+            age = calculate_age(bday, next_bday)
+            milestone_text = ""
+            if is_milestone_age(age):
+                milestone_text = f"\n🎊 MILESTONE BIRTHDAY! Turning {age}! 🎊"
+            
+            message = f"❗ Birthday Reminder (1 day left)\n\n{person_info}\n\n❗ Birthday: {next_bday:%Y-%m-%d}{milestone_text}"
+            send_message(message)
+            messages_sent.append(f"1-day reminder for {name}")
+            print(f"  ✅ Sent 1-day reminder for {name}")
+            reminders_sent += 1
+            
         elif delta == 0:
             person_info = format_person_info(name, row)
             
@@ -293,21 +304,48 @@ def main():
             if is_milestone_age(age):
                 milestone_text = f"\n🎊 MILESTONE BIRTHDAY! They're turning {age} today! 🎊"
             
-            message = f"🟢 Happy Birthday! 🟢\n\n{person_info}\n\n🛑 Dont forget to greet!{milestone_text}"
+            message = f"🎉 Happy Birthday! 🎉\n\n{person_info}\n\n🎂 Don't forget to greet!{milestone_text}"
             send_message(message)
+            messages_sent.append(f"Birthday greeting for {name}")
             print(f"  🎉 Sent birthday greeting for {name}")
-            reminders_sent += 1
+            birthday_greetings_sent += 1
     
-    # Always send a simple control message
-    if reminders_sent == 0:
-        control_msg = f"✅ Control Message\n🤖 Bot is working! Today is {today}"
-        print("No reminders sent today")
-    else:
-        control_msg = f"✅ Control Message\n🤖 Bot is working! Today is {today}"
-        print(f"✅ Sent {reminders_sent} birthday reminders")
+    # Check if it's Sunday (6) and send weekly birthday list
+    is_sunday = today.weekday() == 6  # Sunday = 6 (Monday=0, Tuesday=1, ..., Sunday=6)
+    if is_sunday:
+        print("📅 It's Sunday! Sending weekly birthday list...")
+        weekly_header = f"📅 Weekly Birthday Overview - {today.strftime('%B %d, %Y')}\n\nHere's your complete birthday list with days remaining:"
+        send_message(weekly_header)
+        send_all_birthdays_list(birthdays, today)
+        messages_sent.append("Weekly birthday list")
+        print("✅ Sent weekly birthday list")
     
+    # Always send ONE control message with verification
+    control_parts = [f"✅ Control Message - {today}"]
+    control_parts.append(f"🤖 Bot is working! ({len(birthdays)} birthdays tracked)")
+    
+    # Add verification based on what happened
+    if birthday_greetings_sent > 0:
+        control_parts.append(f"🎉 Sent {birthday_greetings_sent} birthday greeting(s)")
+    
+    if reminders_sent > 0:
+        control_parts.append(f"⏰ Sent {reminders_sent} birthday reminder(s)")
+    
+    if is_sunday:
+        control_parts.append("📅 Sent weekly birthday overview")
+    
+    if not messages_sent or (len(messages_sent) == 1 and "Weekly birthday list" in messages_sent):
+        # No birthdays coming up (or only weekly list sent)
+        control_parts.append("✅ No upcoming birthdays today")
+    
+    control_msg = "\n".join(control_parts)
     send_message(control_msg)
-    print("✅ Sent control message")
+    
+    print(f"✅ Sent control message. Total messages sent: {len(messages_sent) + 1}")
+    if messages_sent:
+        print(f"   Messages sent: {', '.join(messages_sent)}")
+    else:
+        print("   No birthday-related messages sent today")
 
 if __name__ == "__main__":
     main()
