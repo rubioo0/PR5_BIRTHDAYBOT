@@ -220,7 +220,7 @@ def main():
     print(f"CSV URL: {CSV_URL}")
     
     # Use timezone-aware datetime (UTC+3 for Kyiv time)
-    today = (datetime.now(timezone.utc) + timedelta(hours=3)).date()
+    today = datetime.now(ZoneInfo("Europe/Kyiv")).date()
     print(f"Today's date (UTC+3): {today}")
     print(f"Day of week: {today.strftime('%A')} (0=Monday, 6=Sunday: {today.weekday()})")
     
