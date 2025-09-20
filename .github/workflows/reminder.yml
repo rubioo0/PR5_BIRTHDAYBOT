@@ -2,9 +2,7 @@ name: Run reminder script
 
 on:
   schedule:
-    - cron: "15 20 * * *"  # 20:15 UTC = 22:15 Kyiv time
-    - cron: "0 21 * * *"   # 21:00 UTC = 23:00 Kyiv time (backup)
-    - cron: "30 21 * * *"  # 21:30 UTC = 23:30 Kyiv time (backup 2)
+    - cron: "0 6 * * *"  # 06:00 UTC = 09:00 Kyiv time (non-busy morning hour)
   workflow_dispatch:
 
 jobs:
