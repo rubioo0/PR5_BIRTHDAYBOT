@@ -363,7 +363,7 @@ def main():
     control_parts.append(f"📊 Tracking {len(birthdays)} birthdays")
     control_parts.append(f"⏰ Next scheduled run: {next_run_utc.strftime('%Y-%m-%d %H:%M UTC')} (09:00 Kyiv)")
     
-    # Add verification based on what happened
+    # Add verification based on what happened test
     if is_sunday:
         control_parts.append("📅 Sent weekly birthday overview")
     
